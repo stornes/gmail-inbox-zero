@@ -13,3 +13,7 @@ dev = ["pytest>=7.0"]
 
 [project.scripts]
 inbox-zero = "inbox_zero.cli:cli"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".venv", "scripts", "data"]
