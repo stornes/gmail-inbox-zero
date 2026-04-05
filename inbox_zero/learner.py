@@ -53,7 +53,7 @@ def boost_confidence(rule: Rule) -> Rule:
     Increases confidence by CONFIDENCE_BOOST_PER_HIT, capped at 1.0.
     Returns the mutated rule.
     """
-    rule.confidence = min(rule.confidence + CONFIDENCE_BOOST_PER_HIT, 1.0)
+    rule.confidence = _clamp(rule.confidence + CONFIDENCE_BOOST_PER_HIT, 0.0, 1.0)
     return rule
 
 

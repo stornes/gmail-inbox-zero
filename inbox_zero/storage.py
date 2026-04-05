@@ -76,6 +76,60 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
     return datetime.fromisoformat(value)
 
 
+def _row_to_sender(row) -> Sender:
+    return Sender(
+        email=row["email"],
+        display_name=row["display_name"],
+        is_contact=bool(row["is_contact"]),
+        total_received=row["total_received"],
+        total_archived=row["total_archived"],
+        total_deleted=row["total_deleted"],
+        total_kept=row["total_kept"],
+        reputation_score=row["reputation_score"],
+        first_seen=datetime.fromisoformat(row["first_seen"]),
+        last_seen=_parse_datetime(row["last_seen"]),
+        categories=row["categories"],
+    )
+
+
+def _row_to_action_log(row) -> ActionLog:
+    return ActionLog(
+        id=row["id"],
+        message_id=row["message_id"],
+        thread_id=row["thread_id"],
+        sender_email=row["sender_email"],
+        subject=row["subject"],
+        rule_id=row["rule_id"],
+        action=ActionType(row["action"]),
+        confidence=row["confidence"],
+        was_dry_run=bool(row["was_dry_run"]),
+        timestamp=datetime.fromisoformat(row["timestamp"]),
+    )
+
+
+def _row_to_correction(row) -> Correction:
+    return Correction(
+        id=row["id"],
+        action_log_id=row["action_log_id"],
+        rule_id=row["rule_id"],
+        original_action=ActionType(row["original_action"]),
+        corrective_action=row["corrective_action"],
+        detected_at=datetime.fromisoformat(row["detected_at"]),
+        applied=bool(row["applied"]),
+    )
+
+
+def _row_to_category(row) -> Category:
+    return Category(
+        id=row["id"],
+        name=row["name"],
+        description=row["description"],
+        keywords=row["keywords"],
+        default_action=ActionType(row["default_action"]),
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
 class Storage:
     """SQLite storage backend for inbox-zero data."""
 
@@ -158,39 +212,12 @@ class Storage:
             ).fetchone()
         if not row:
             return None
-        return Sender(
-            email=row["email"],
-            display_name=row["display_name"],
-            is_contact=bool(row["is_contact"]),
-            total_received=row["total_received"],
-            total_archived=row["total_archived"],
-            total_deleted=row["total_deleted"],
-            total_kept=row["total_kept"],
-            reputation_score=row["reputation_score"],
-            first_seen=datetime.fromisoformat(row["first_seen"]),
-            last_seen=_parse_datetime(row["last_seen"]),
-            categories=row["categories"],
-        )
+        return _row_to_sender(row)
 
     def list_senders(self) -> list[Sender]:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM senders").fetchall()
-        return [
-            Sender(
-                email=r["email"],
-                display_name=r["display_name"],
-                is_contact=bool(r["is_contact"]),
-                total_received=r["total_received"],
-                total_archived=r["total_archived"],
-                total_deleted=r["total_deleted"],
-                total_kept=r["total_kept"],
-                reputation_score=r["reputation_score"],
-                first_seen=datetime.fromisoformat(r["first_seen"]),
-                last_seen=_parse_datetime(r["last_seen"]),
-                categories=r["categories"],
-            )
-            for r in rows
-        ]
+        return [_row_to_sender(r) for r in rows]
 
     # -- Categories --
 
@@ -223,29 +250,12 @@ class Storage:
             ).fetchone()
         if not row:
             return None
-        return Category(
-            id=row["id"],
-            name=row["name"],
-            description=row["description"],
-            keywords=row["keywords"],
-            default_action=ActionType(row["default_action"]),
-            created_at=datetime.fromisoformat(row["created_at"]),
-        )
+        return _row_to_category(row)
 
     def list_categories(self) -> list[Category]:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM categories").fetchall()
-        return [
-            Category(
-                id=r["id"],
-                name=r["name"],
-                description=r["description"],
-                keywords=r["keywords"],
-                default_action=ActionType(r["default_action"]),
-                created_at=datetime.fromisoformat(r["created_at"]),
-            )
-            for r in rows
-        ]
+        return [_row_to_category(r) for r in rows]
 
     # -- Action Log --
 
@@ -278,18 +288,7 @@ class Storage:
             ).fetchone()
         if not row:
             return None
-        return ActionLog(
-            id=row["id"],
-            message_id=row["message_id"],
-            thread_id=row["thread_id"],
-            sender_email=row["sender_email"],
-            subject=row["subject"],
-            rule_id=row["rule_id"],
-            action=ActionType(row["action"]),
-            confidence=row["confidence"],
-            was_dry_run=bool(row["was_dry_run"]),
-            timestamp=datetime.fromisoformat(row["timestamp"]),
-        )
+        return _row_to_action_log(row)
 
     def list_action_logs(
         self, rule_id: Optional[str] = None, limit: int = 100
@@ -305,21 +304,7 @@ class Storage:
                     "SELECT * FROM action_log ORDER BY timestamp DESC LIMIT ?",
                     (limit,),
                 ).fetchall()
-        return [
-            ActionLog(
-                id=r["id"],
-                message_id=r["message_id"],
-                thread_id=r["thread_id"],
-                sender_email=r["sender_email"],
-                subject=r["subject"],
-                rule_id=r["rule_id"],
-                action=ActionType(r["action"]),
-                confidence=r["confidence"],
-                was_dry_run=bool(r["was_dry_run"]),
-                timestamp=datetime.fromisoformat(r["timestamp"]),
-            )
-            for r in rows
-        ]
+        return [_row_to_action_log(r) for r in rows]
 
     # -- Corrections --
 
@@ -349,15 +334,7 @@ class Storage:
             ).fetchone()
         if not row:
             return None
-        return Correction(
-            id=row["id"],
-            action_log_id=row["action_log_id"],
-            rule_id=row["rule_id"],
-            original_action=ActionType(row["original_action"]),
-            corrective_action=row["corrective_action"],
-            detected_at=datetime.fromisoformat(row["detected_at"]),
-            applied=bool(row["applied"]),
-        )
+        return _row_to_correction(row)
 
     def list_corrections(
         self, rule_id: Optional[str] = None, unapplied_only: bool = False
@@ -375,18 +352,7 @@ class Storage:
                 query += " WHERE " + " AND ".join(conditions)
             query += " ORDER BY detected_at DESC"
             rows = conn.execute(query, params).fetchall()
-        return [
-            Correction(
-                id=r["id"],
-                action_log_id=r["action_log_id"],
-                rule_id=r["rule_id"],
-                original_action=ActionType(r["original_action"]),
-                corrective_action=r["corrective_action"],
-                detected_at=datetime.fromisoformat(r["detected_at"]),
-                applied=bool(r["applied"]),
-            )
-            for r in rows
-        ]
+        return [_row_to_correction(r) for r in rows]
 
     def mark_correction_applied(self, correction_id: str) -> None:
         with self._connect() as conn:

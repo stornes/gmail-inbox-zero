@@ -1,36 +1,12 @@
 """Action executor: takes resolved rule matches and executes them via GmailClient."""
 
 import logging
-from dataclasses import dataclass, field
 
+from .engine import ActionSummary, RuleMatch
 from .gmail_client import GmailClient
+from .models import ActionType
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ActionSummary:
-    archived: int = 0
-    deleted: int = 0
-    labeled: int = 0
-    kept: int = 0
-    flagged: int = 0
-
-
-@dataclass
-class RuleMatch:
-    """Lightweight match record for the action executor.
-
-    This is intentionally separate from engine.RuleMatch so that WP3
-    stays self-contained and does not depend on models.py.
-    """
-    message_id: str
-    thread_id: str
-    rule_name: str
-    resolved_action: str          # "archive" | "delete" | "label" | "keep" | "flag_review"
-    sender_email: str
-    subject: str
-    label_name: str | None = None  # required when resolved_action == "label"
 
 
 def execute_actions(
@@ -53,25 +29,25 @@ def execute_actions(
     label_groups: dict[str, list[str]] = {}
 
     for m in matches:
-        action = m.resolved_action.lower()
+        action = m.resolved_action
 
-        if action == "archive":
+        if action == ActionType.ARCHIVE:
             to_archive.append(m.message_id)
             summary.archived += 1
 
-        elif action == "delete":
+        elif action == ActionType.DELETE:
             to_delete.append(m.message_id)
             summary.deleted += 1
 
-        elif action == "label":
-            label = m.label_name or "Unlabeled"
+        elif action == ActionType.LABEL:
+            label = m.rule.label_name or "Unlabeled"
             label_groups.setdefault(label, []).append(m.message_id)
             summary.labeled += 1
 
-        elif action == "keep":
+        elif action == ActionType.KEEP:
             summary.kept += 1
 
-        elif action == "flag_review":
+        elif action == ActionType.FLAG_REVIEW:
             summary.flagged += 1
 
         else:
