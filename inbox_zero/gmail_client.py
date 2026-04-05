@@ -172,17 +172,17 @@ class GmailClient:
         return len(msg_ids)
 
     def delete_messages(self, msg_ids: list[str], batch_size: int = 100) -> int:
-        """Trash messages one by one (safer). Returns count processed."""
+        """Trash messages via batchModify. Returns count processed."""
         if not msg_ids:
             return 0
-        count = 0
-        for msg_id in msg_ids[:batch_size]:
-            try:
-                self._post(f"messages/{msg_id}/trash", {})
-                count += 1
-            except Exception:
-                pass
-        return count
+        for i in range(0, len(msg_ids), batch_size):
+            batch = msg_ids[i : i + batch_size]
+            self._post("messages/batchModify", {
+                "ids": batch,
+                "addLabelIds": ["TRASH"],
+                "removeLabelIds": ["INBOX"],
+            })
+        return len(msg_ids)
 
     def label_and_archive(
         self, msg_ids: list[str], label_name: str, batch_size: int = 1000

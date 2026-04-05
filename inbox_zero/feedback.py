@@ -158,19 +158,17 @@ def run_feedback_cycle(
     result.corrections_detected = len(corrections)
 
     # Step 2: Apply corrections (decay confidence)
-    corrected_rule_ids: set[str] = set()
     for correction in corrections:
         storage.insert_correction(correction)
-        if correction.rule_id is not None:
-            corrected_rule_ids.add(correction.rule_id)
+    result.rules_decayed = apply_corrections(storage, corrections)
 
-    # Decay confidence on affected rules
+    # Decay confidence on the actual rule objects if available
     if rules is not None:
+        corrected_rule_ids = {c.rule_id for c in corrections if c.rule_id}
         rule_map = {r.id: r for r in rules}
         for rule_id in corrected_rule_ids:
             if rule_id in rule_map:
                 decay_confidence(rule_map[rule_id])
-                result.rules_decayed += 1
 
     # Step 3: Boost uncorrected rules
     corrected_action_ids = {c.action_log_id for c in corrections}
@@ -180,6 +178,9 @@ def run_feedback_cycle(
         and a.rule_id is not None
         and not a.was_dry_run
     ]
+    result.rules_boosted = boost_uncorrected_rules(storage, successful)
+
+    # Apply boost to actual rule objects if available
     if rules is not None:
         rule_map = {r.id: r for r in rules}
         boosted_ids: set[str] = set()
@@ -187,9 +188,6 @@ def run_feedback_cycle(
             if action_log.rule_id in rule_map and action_log.rule_id not in boosted_ids:
                 boost_confidence(rule_map[action_log.rule_id])
                 boosted_ids.add(action_log.rule_id)
-        result.rules_boosted = len(boosted_ids)
-    else:
-        result.rules_boosted = boost_uncorrected_rules(storage, successful)
 
     # Step 4: Auto-disable low-confidence rules
     if rules is not None:
