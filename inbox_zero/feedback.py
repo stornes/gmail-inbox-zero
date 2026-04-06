@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
-from .config import MIN_CONFIDENCE_BEFORE_DISABLE
 from .learner import (
     boost_confidence,
     compute_reputation,

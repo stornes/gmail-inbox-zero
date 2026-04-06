@@ -41,9 +41,11 @@ class RuleEngine:
         self,
         rules: list[Rule],
         gmail_search_fn: Callable[[str], list[dict]],
+        metadata_fn: Callable[[str], tuple[str, str]] | None = None,
     ) -> None:
         self.rules = rules
         self.gmail_search_fn = gmail_search_fn
+        self.metadata_fn = metadata_fn
 
     def evaluate(self) -> EvaluationResult:
         # 1. Load enabled rules sorted by priority descending
@@ -60,19 +62,15 @@ class RuleEngine:
         for rule in enabled_rules:
             messages = self.gmail_search_fn(rule.query)
             for msg in messages:
-                msg_id = msg["id"]
-                thread_id = msg.get("threadId", "")
-                sender_email = msg.get("sender_email", "")
-                subject = msg.get("subject", "")
                 match = RuleMatch(
-                    message_id=msg_id,
-                    thread_id=thread_id,
+                    message_id=msg["id"],
+                    thread_id=msg.get("threadId", ""),
                     rule=rule,
                     resolved_action=rule.action,
-                    sender_email=sender_email,
-                    subject=subject,
+                    sender_email="",
+                    subject="",
                 )
-                match_map.setdefault(msg_id, []).append(match)
+                match_map.setdefault(match.message_id, []).append(match)
 
         # 3. Conflict resolution per message
         result = EvaluationResult()
@@ -81,6 +79,18 @@ class RuleEngine:
             winner = self._resolve_conflict(matches)
             if winner is None:
                 continue
+
+            # Enrich winner with metadata if available
+            if self.metadata_fn and not winner.sender_email:
+                sender_email, subject = self.metadata_fn(winner.message_id)
+                winner = RuleMatch(
+                    message_id=winner.message_id,
+                    thread_id=winner.thread_id,
+                    rule=winner.rule,
+                    resolved_action=winner.resolved_action,
+                    sender_email=sender_email,
+                    subject=subject,
+                )
 
             # Apply threshold logic
             confidence = winner.rule.confidence
