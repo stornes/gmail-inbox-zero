@@ -22,18 +22,11 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 
 def compute_reputation(sender: Sender) -> float:
-    """Compute sender reputation score.
+    """Compute sender reputation score and update the stored field.
 
-    Formula:
-        base = 0.5 (+ 0.3 if contact)
-        ratio = (total_kept - total_deleted) / max(total_received, 1)
-        reputation = clamp(base + ratio * 0.4, 0.0, 1.0)
+    Delegates to Sender.refresh_reputation() to keep the stored value in sync.
     """
-    base = 0.5
-    if sender.is_contact:
-        base += 0.3
-    ratio = (sender.total_kept - sender.total_deleted) / max(sender.total_received, 1)
-    return _clamp(base + ratio * 0.4, 0.0, 1.0)
+    return sender.refresh_reputation()
 
 
 def decay_confidence(rule: Rule) -> Rule:

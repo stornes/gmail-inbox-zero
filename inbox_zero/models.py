@@ -53,6 +53,17 @@ class Sender:
     last_seen: Optional[datetime] = None
     categories: str = ""
 
+    def refresh_reputation(self) -> float:
+        """Recompute reputation_score from current fields and store it.
+
+        Formula: base=0.5 (+0.3 if contact),
+        ratio=(kept-deleted)/max(received,1), clamp(base+ratio*0.4, 0, 1)
+        """
+        base = 0.5 + (0.3 if self.is_contact else 0.0)
+        ratio = (self.total_kept - self.total_deleted) / max(self.total_received, 1)
+        self.reputation_score = max(0.0, min(1.0, base + ratio * 0.4))
+        return self.reputation_score
+
 
 @dataclass
 class Category:
